@@ -19,26 +19,6 @@ function logDocumentCreationError(stage: "authentication" | "insert" | "select",
   });
 }
 
-function logAuthContext(data: unknown, error: { code?: string; message?: string } | null) {
-  if (process.env.NODE_ENV !== "development") return;
-  if (error) {
-    console.warn("[Draftly] Document creation auth context RPC failed", {
-      code: error.code,
-      message: error.message,
-    });
-    return;
-  }
-
-  const context = Array.isArray(data) ? data[0] : data;
-  const values = typeof context === "object" && context !== null
-    ? context as { uid?: unknown; role?: unknown }
-    : {};
-  console.info("[Draftly] Document creation auth context", {
-    uid: typeof values.uid === "string" ? values.uid : null,
-    role: typeof values.role === "string" ? values.role : null,
-  });
-}
-
 async function authenticatedClient() {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
@@ -64,59 +44,27 @@ export async function createDocument(title = "Untitled document", content: unkno
     });
     return { error: "Your session has expired. Sign in again." };
   }
-  const diagnoseInsert = process.env.NODE_ENV === "development"
-    && process.env.DRAFTLY_DIAGNOSE_DOCUMENT_INSERT === "1";
-  if (diagnoseInsert) {
-    try {
-      const { data: authContext, error: authContextError } = await supabase.rpc("debug_auth_context");
-      logAuthContext(authContext, authContextError);
-    } catch (error) {
-      console.warn("[Draftly] Document creation auth context RPC threw an error", {
-        message: error instanceof Error ? error.message : "Unknown RPC error",
-      });
-    }
-  }
-  if (diagnoseInsert) {
-    const id = randomUUID();
-    const { error: insertError } = await supabase
-      .from("documents")
-      .insert({ id, title: parsedTitle.data, content: validContent });
-    if (insertError) {
-      logDocumentCreationError("insert", insertError);
-      return { error: "Your document couldn't be created. Please try again." };
-    }
-
-    const { data: selectedDocument, error: selectError } = await supabase
-      .from("documents")
-      .select("id")
-      .eq("id", id)
-      .maybeSingle();
-    if (selectError) {
-      logDocumentCreationError("select", selectError);
-      return { error: "Your document couldn't be created. Please try again." };
-    }
-    if (!selectedDocument) {
-      logDocumentCreationError("select", { message: "The inserted document was not visible to the follow-up SELECT." });
-      return { error: "Your document couldn't be created. Please try again." };
-    }
-
-    revalidatePath("/workspace");
-    return { id: selectedDocument.id };
-  }
-  const { data, error } = await supabase
+  const id = randomUUID();
+  const { error: insertError } = await supabase
     .from("documents")
-    .insert({ title: parsedTitle.data, content: validContent })
-    .select("id")
-    .single();
-  if (error) {
-    logDocumentCreationError("insert", error);
+    .insert({ id, title: parsedTitle.data, content: validContent });
+  if (insertError) {
+    logDocumentCreationError("insert", insertError);
     return { error: "Your document couldn't be created. Please try again." };
+  }
+
+  const { data, error: selectError } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (selectError) {
+    logDocumentCreationError("select", selectError);
+    return { error: "Your document was created, but couldn't be opened. Refresh your workspace or try again." };
   }
   if (!data) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("[Draftly] Document creation returned no document ID and no database error.");
-    }
-    return { error: "Your document couldn't be created. Please try again." };
+    logDocumentCreationError("select", { message: "The inserted document was not visible to the follow-up SELECT." });
+    return { error: "Your document was created, but couldn't be opened. Refresh your workspace or try again." };
   }
   revalidatePath("/workspace");
   return { id: data.id };
