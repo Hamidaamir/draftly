@@ -6,6 +6,25 @@ Draftly is a polished document workspace for writing, importing Markdown/text, a
 
 Next.js App Router and TypeScript provide server-rendered workspace pages and server actions. Supabase Auth and PostgreSQL persist accounts, documents, and shares; RLS is the enforcement boundary. Tiptap JSON is the canonical editor format. The interface uses semantic React controls and a small custom CSS design system rather than adding a component library.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser[Next.js UI and Tiptap] -->|session cookies| App[Server Components and Actions]
+  Browser -->|local UTF-8 .txt / .md parsing| Editor[Tiptap JSON]
+  Editor -->|debounced revision-checked save| App
+  App --> Auth[Supabase Auth]
+  App --> DB[(Supabase Postgres with RLS)]
+  Auth --> Profiles[profiles]
+  DB --> Documents[documents]
+  Documents --> Shares[document_shares]
+```
+
+- **Authentication and access:** Server components and actions use the signed-in user's cookie-bound Supabase session. Each protected action verifies the user; PostgreSQL row-level security enforces document ownership and viewer/editor permissions. The app does not use a service-role key.
+- **Document lifecycle:** The workspace creates documents through a server action. Creation inserts with a generated ID and no returned row, then reads the new ID separately. Tiptap JSON is validated before it is saved; autosave uses revision checks to avoid silently overwriting concurrent edits.
+- **Import and collaboration:** Text and Markdown files are validated and parsed locally into Tiptap JSON; originals are not uploaded. Sharing is performed through authenticated server actions and existing database permission checks.
+- **Configuration safety:** Keep local environment files out of version control. Configure project-specific values in local or deployment environment settings; never put passwords, access tokens, or service-role credentials in source code or `NEXT_PUBLIC_*` variables.
+
 ## Local setup
 
 1. Create a Supabase project and copy `.env.example` to `.env.local`.
