@@ -82,3 +82,29 @@ Deploy the repository to Vercel, add the Supabase URL and publishable key plus t
 ## Security and limitations
 
 The browser and server use the Supabase publishable/anon key with the signed-in user's session. RLS enforces ownership, editor/viewer access, and owner-only sharing. Email lookup and collaborator listing use narrow security-definer database functions. The app does not use a service-role key, upload originals to Storage, provide real-time collaboration, or implement version history. Sharing is limited to already registered users; Draftly does not send invitations.
+
+## AI workflow note
+
+### AI tools used
+
+I used GitHub Copilot Chat and ChatGPT as development assistants throughout the Draftly assignment.
+
+### How AI helped
+
+AI helped accelerate codebase exploration, implementation planning, UI refinement, component development, test creation, and debugging. I used it to explore implementation options and identify potential edge cases across document editing, file import, sharing, and authentication.
+
+### Human judgment and decisions
+
+I remained responsible for deciding what to build within the time limit, reviewing generated changes, and prioritizing a reliable core workflow over attempting to reproduce all of Google Docs. I also reviewed suggestions against the existing architecture and requirements rather than accepting generated code blindly.
+
+For example, I prioritized preserving Supabase authentication and row-level security instead of bypassing access controls to work around document-creation issues. I kept file import intentionally scoped to the supported formats and documented limitations rather than claiming unsupported functionality.
+
+### Verification
+
+I used automated tests, linting, TypeScript checks, and a production build to catch regressions. I also inspected the application in the browser. These checks complement, but do not replace, end-to-end verification of authentication, persistence, and sharing against the deployed Supabase project.
+
+### What I would improve next
+
+With more time, I would expand end-to-end permission tests, improve collaboration feedback, and implement notifications for shared-document updates, including in-app alerts and email notifications with appropriate delivery controls.
+
+AI accelerated implementation, but I treated its output as a starting point. I remained accountable for the technical decisions, security considerations, scope, and validation of the final product.
